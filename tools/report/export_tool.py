@@ -1,0 +1,202 @@
+# tools/report/export_tool.py
+import json
+import os
+from pathlib import Path
+from crewai.tools import tool
+
+
+@tool("Export Report to HTML and PDF")
+def export_report(input_json: str) -> str:
+    """
+    Xuất báo cáo Markdown thành HTML và PDF.
+    Input: JSON string {"markdown_content": "...", "output_dir": "./outputs/reports"}
+    hoặc JSON với "report_path" để đọc từ file.
+    """
+    try:
+        params = json.loads(input_json)
+        markdown_content = params.get("markdown_content")
+        report_path = params.get("report_path")
+        output_dir = params.get("output_dir", "outputs/reports")
+    except Exception:
+        # Treat as markdown content directly
+        markdown_content = input_json
+        output_dir = "outputs/reports"
+        report_path = None
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Read from file if path provided
+    if report_path and not markdown_content:
+        try:
+            with open(report_path, "r", encoding="utf-8") as f:
+                markdown_content = f.read()
+        except Exception as e:
+            return json.dumps({"error": f"Could not read report file: {e}"})
+
+    if not markdown_content:
+        # Try default path
+        default_path = os.path.join(output_dir, "attack_surface_report.md")
+        if os.path.exists(default_path):
+            with open(default_path, "r", encoding="utf-8") as f:
+                markdown_content = f.read()
+        else:
+            return json.dumps({"error": "No markdown content provided and no report file found"})
+
+    html_path = os.path.join(output_dir, "attack_surface_report.html")
+    pdf_path = os.path.join(output_dir, "attack_surface_report.pdf")
+
+    results = {
+        "markdown_saved": False,
+        "html_exported": False,
+        "pdf_exported": False,
+        "files": {},
+        "errors": [],
+    }
+
+    # Save/update markdown
+    md_path = os.path.join(output_dir, "attack_surface_report.md")
+    try:
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(markdown_content)
+        results["markdown_saved"] = True
+        results["files"]["markdown"] = md_path
+    except Exception as e:
+        results["errors"].append(f"Markdown save error: {e}")
+
+    # Convert to HTML
+    try:
+        import markdown2
+        html_body = markdown2.markdown(
+            markdown_content,
+            extras=["tables", "fenced-code-blocks", "header-ids", "strike"]
+        )
+
+        html_full = f"""<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attack Surface Assessment Report</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #0a0e1a;
+            color: #c9d1d9;
+            max-width: 1100px;
+            margin: 40px auto;
+            padding: 20px 40px;
+            line-height: 1.7;
+        }}
+        h1 {{ color: #58a6ff; border-bottom: 2px solid #21262d; padding-bottom: 10px; }}
+        h2 {{ color: #79c0ff; border-bottom: 1px solid #21262d; padding-bottom: 5px; margin-top: 40px; }}
+        h3 {{ color: #a5d6ff; }}
+        table {{
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+            font-size: 14px;
+        }}
+        th {{
+            background: #161b22;
+            border: 1px solid #30363d;
+            padding: 10px 14px;
+            text-align: left;
+            color: #58a6ff;
+        }}
+        td {{
+            border: 1px solid #21262d;
+            padding: 8px 14px;
+        }}
+        tr:nth-child(even) {{ background: #0d1117; }}
+        tr:hover {{ background: #1c2128; }}
+        code {{
+            background: #161b22;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #ff7b72;
+        }}
+        pre {{
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }}
+        pre code {{ background: none; color: #a5d6ff; }}
+        blockquote {{
+            border-left: 4px solid #3b82f6;
+            margin: 0;
+            padding: 8px 16px;
+            background: #0d1117;
+            color: #8b949e;
+        }}
+        .severity-critical {{ color: #ff4444; font-weight: bold; }}
+        .severity-high {{ color: #ff8800; font-weight: bold; }}
+        .severity-medium {{ color: #ffcc00; }}
+        .severity-low {{ color: #4488ff; }}
+        hr {{ border-color: #21262d; }}
+        a {{ color: #58a6ff; }}
+        .footer {{
+            margin-top: 60px;
+            padding-top: 20px;
+            border-top: 1px solid #21262d;
+            color: #6e7681;
+            font-size: 12px;
+            text-align: center;
+        }}
+    </style>
+</head>
+<body>
+{html_body}
+<div class="footer">
+    <p>Generated by Multi-Agent Recon System | CrewAI + DeepSeek</p>
+</div>
+</body>
+</html>"""
+
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html_full)
+
+        results["html_exported"] = True
+        results["files"]["html"] = html_path
+
+    except ImportError:
+        results["errors"].append("markdown2 not installed. Run: pip install markdown2")
+    except Exception as e:
+        results["errors"].append(f"HTML export error: {e}")
+
+    # Convert to PDF
+    try:
+        from weasyprint import HTML, CSS
+        if os.path.exists(html_path):
+            HTML(filename=html_path).write_pdf(pdf_path)
+            results["pdf_exported"] = True
+            results["files"]["pdf"] = pdf_path
+        else:
+            results["errors"].append("HTML file not found for PDF conversion")
+    except ImportError:
+        results["errors"].append(
+            "weasyprint not installed or has missing dependencies. "
+            "PDF export skipped. Run: pip install weasyprint"
+        )
+        # Try alternative: pdfkit
+        try:
+            import pdfkit  # type: ignore
+            if os.path.exists(html_path):
+                pdfkit.from_file(html_path, pdf_path)
+                results["pdf_exported"] = True
+                results["files"]["pdf"] = pdf_path
+        except ImportError:
+            pass
+    except Exception as e:
+        results["errors"].append(f"PDF export error: {str(e)}")
+
+    results["summary"] = (
+        f"Export complete: "
+        f"MD={'✓' if results['markdown_saved'] else '✗'}, "
+        f"HTML={'✓' if results['html_exported'] else '✗'}, "
+        f"PDF={'✓' if results['pdf_exported'] else '✗'}"
+    )
+
+    return json.dumps(results, ensure_ascii=False, indent=2)

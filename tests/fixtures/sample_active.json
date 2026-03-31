@@ -1,0 +1,86 @@
+{
+  "target": "scanme.nmap.org",
+  "scan_time": "2024-01-15T10:45:00",
+  "nmap": {
+    "target": "scanme.nmap.org",
+    "ip": "45.33.32.156",
+    "ports": [
+      {"port": 22, "state": "open", "service": "ssh", "version": "OpenSSH 8.9p1"},
+      {"port": 80, "state": "open", "service": "http", "version": "Apache httpd 2.4.58"},
+      {"port": 9929, "state": "open", "service": "nping-echo", "version": ""},
+      {"port": 31337, "state": "open", "service": "Elite", "version": ""}
+    ],
+    "os_detection": "Linux 5.x",
+    "scan_duration": 12.4
+  },
+  "banners": {
+    "22": "SSH-2.0-OpenSSH_8.9p1 Ubuntu-3ubuntu0.4",
+    "80": "HTTP/1.1 200 OK\r\nServer: Apache/2.4.58\r\nX-Powered-By: PHP/8.1.0"
+  },
+  "ssl": {
+    "host": "scanme.nmap.org",
+    "port": 443,
+    "available": false,
+    "error": "Connection refused"
+  },
+  "headers": {
+    "url": "http://scanme.nmap.org",
+    "status_code": 200,
+    "server": "Apache/2.4.58",
+    "x_powered_by": "PHP/8.1.0",
+    "content_type": "text/html; charset=UTF-8",
+    "missing_headers": [
+      "X-Frame-Options",
+      "Content-Security-Policy",
+      "Strict-Transport-Security",
+      "X-Content-Type-Options"
+    ],
+    "security_findings": [
+      {"header": "Server", "value": "Apache/2.4.58", "severity": "Low", "detail": "Server version disclosed"},
+      {"header": "X-Powered-By", "value": "PHP/8.1.0", "severity": "Low", "detail": "Technology version disclosed"},
+      {"header": "Missing: X-Frame-Options", "severity": "Medium", "detail": "Clickjacking risk"},
+      {"header": "Missing: CSP", "severity": "Medium", "detail": "XSS mitigation missing"}
+    ]
+  },
+  "waf": {
+    "detected": false,
+    "waf_name": null,
+    "confidence": "None"
+  },
+  "techstack": {
+    "url": "http://scanme.nmap.org",
+    "technologies": [
+      {"name": "Apache", "version": "2.4.58", "category": "Web Server"},
+      {"name": "PHP", "version": "8.1.0", "category": "Programming Language"},
+      {"name": "Ubuntu", "category": "Operating System"}
+    ]
+  },
+  "robots": {
+    "url": "http://scanme.nmap.org/robots.txt",
+    "status_code": 200,
+    "disallowed": ["/secret", "/admin"],
+    "sitemaps": []
+  },
+  "dirbust": {
+    "target": "http://scanme.nmap.org",
+    "found_paths": [
+      {"path": "/", "status": 200, "size": 7635},
+      {"path": "/robots.txt", "status": 200, "size": 47},
+      {"path": "/images/", "status": 200, "size": 1024}
+    ],
+    "wordlist_size": 50,
+    "elapsed_seconds": 8.2
+  },
+  "http_methods": {
+    "url": "http://scanme.nmap.org",
+    "allowed": ["GET", "POST", "HEAD", "OPTIONS"],
+    "dangerous_enabled": [],
+    "findings": []
+  },
+  "cloud_buckets": {
+    "target": "nmap.org",
+    "public_buckets": [],
+    "checked": ["nmap", "nmap-org", "nmap-backup"],
+    "vulnerable_count": 0
+  }
+}

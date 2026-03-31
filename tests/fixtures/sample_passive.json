@@ -1,0 +1,71 @@
+{
+  "target": "scanme.nmap.org",
+  "scan_time": "2024-01-15T10:30:00",
+  "whois": {
+    "domain": "nmap.org",
+    "registrar": "Key-Systems, LLC",
+    "creation_date": "1999-10-13",
+    "expiration_date": "2029-10-13",
+    "registrant_org": "Nmap Software LLC",
+    "registrant_country": "US",
+    "status": "clientTransferProhibited"
+  },
+  "dns_records": {
+    "A": ["45.33.32.156"],
+    "AAAA": ["2600:3c01::f03c:91ff:fe18:bb2f"],
+    "MX": [
+      {"priority": 10, "host": "aspmx.l.google.com"},
+      {"priority": 20, "host": "alt1.aspmx.l.google.com"}
+    ],
+    "NS": [
+      "ns1.linode.com",
+      "ns2.linode.com",
+      "ns3.linode.com"
+    ],
+    "TXT": [
+      "v=spf1 include:_spf.google.com ~all"
+    ]
+  },
+  "subdomains": [
+    {"domain": "scanme.nmap.org", "ip": "45.33.32.156", "source": "passive_dns"},
+    {"domain": "www.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
+    {"domain": "svn.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
+    {"domain": "nmap.org", "ip": "45.33.32.156", "source": "subfinder"}
+  ],
+  "certificates": [
+    {
+      "common_name": "*.nmap.org",
+      "issuer": "Let's Encrypt",
+      "serial": "0x3765ABCD",
+      "not_before": "2024-01-01",
+      "not_after": "2024-04-01"
+    }
+  ],
+  "ip_asn": {
+    "ip": "45.33.32.156",
+    "asn": "AS63949",
+    "org": "Linode LLC",
+    "country": "US",
+    "region": "New Jersey",
+    "isp": "Linode"
+  },
+  "asn_ranges": ["45.33.0.0/16"],
+  "osint_emails": [
+    "fyodor@nmap.org",
+    "nmap-dev@nmap.org"
+  ],
+  "wayback_urls": [
+    {"url": "http://scanme.nmap.org/", "timestamp": "20230101120000"},
+    {"url": "http://scanme.nmap.org/robots.txt", "timestamp": "20230615142000"}
+  ],
+  "shodan": {
+    "ip_str": "45.33.32.156",
+    "org": "Linode",
+    "country_code": "US",
+    "open_ports": [22, 80, 9929, 31337],
+    "vulns": ["CVE-2021-41773"],
+    "tags": ["honeypot"],
+    "last_update": "2024-01-10"
+  },
+  "error": null
+}

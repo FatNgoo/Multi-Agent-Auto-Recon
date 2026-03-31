@@ -1,0 +1,41 @@
+{
+  "status": "completed",
+  "target": "scanme.nmap.org",
+  "scan_mode": "passive",
+  "duration_seconds": 173.632374,
+  "result": "{\n    \"target\": \"scanme.nmap.org\",\n    \"scan_timestamp\": \"2024-12-31T23:59:59Z\",\n    \"whois\": {\n        \"registrar\": \"DYNADOT LLC\",\n        \"creation_date\": \"1999-01-18T05:00:00+00:00\",\n        \"expiration_date\": \"2029-01-18T05:00:00+00:00\",\n        \"name_servers\": [\n            \"ns1.linode.com\",\n            \"ns2.linode.com\",\n            \"ns3.linode.com\",\n            \"ns4.linode.com\",\n            \"ns5.linode.com\"\n        ],\n        \"registrant_org\": \"Super Privacy Service LTD c/o Dynadot\",\n        \"registrant_country\": \"US\"\n    },\n    \"dns_records\": {\n        \"A\": [\"45.33.32.156\"],\n        \"AAAA\": [\"2600:3c01::f03c:91ff:fe18:bb2f\"],\n        \"MX\": [],\n        \"NS\": [],\n        \"TXT\": [],\n        \"CNAME\": [],\n        \"SOA\": \"\",\n        \"spf_record\": null,\n        \"dmarc_record\": null\n    },\n    \"subdomains\": [],\n    \"ssl_certificates\": null,\n    \"asn_info\": {\n        \"asn\": \"63949\",\n        \"cidr\": [\"45.33.32.0/19\"],\n        \"org\": \"AKAMAI-LINODE-AP Akamai Connected Cloud, SG\",\n        \"country\": \"US\"\n    },\n    \"shodan_data\": null,\n    \"osint_emails\": [],\n    \"google_dorks\": [\n        {\n            \"dork\": \"site:scanme.nmap.org filetype:pdf\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org filetype:xls OR filetype:xlsx\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org inurl:admin OR inurl:login OR inurl:dashboard\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org intext:\\\"index of\\\"\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org ext:env OR ext:config OR ext:cfg\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org inurl:api OR inurl:swagger OR inurl:graphql\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org intext:password OR intext:secret OR intext:token\",\n            \"count\": 0,\n            \"results\": []\n        },\n        {\n            \"dork\": \"site:scanme.nmap.org -www\",\n            \"count\": 0,\n            \"results\": []\n        }\n    ],\n    \"historical_urls\": null,\n    \"reverse_ip_domains\": [\n        \"apartmentbuild.com\",\n        \"apartmentbuild.eu\",\n        \"scanme.nmap.org\",\n        \"nmap.scanme.org\",\n        \"www.scanme.org\"\n    ],\n    \"related_domains\": [],\n    \"raw_passive_notes\": \"WHOIS: Domain registered with Dynadot using privacy service. DNS: Single A record (45.33.32.156) and IPv6 address. No MX, TXT, SPF, or DMARC records found. ASN: Hosted on Akamai/Linode infrastructure (AS63949). Subdomains: No subdomains found via certificate transparency or brute-force. SSL Certificates: crt.sh lookup timed out. Shodan: Tool error - 'list' object has no attribute 'keys'. OSINT: theHarvester not installed. Google Dorks: No sensitive files or pages found. URLScan: 260 scans found, shows Apache/2.4.7 (Ubuntu) server on port 80, also scans on ports 31337 and 9929. Wayback Machine: Connection timeout. DNSDumpster: Confirms single host with same IP. Reverse IP: 5 domains share same IP including apartmentbuild.com, apartmentbuild.eu, nmap.scanme.org, www.scanme.org. Reverse WHOIS: API key error. Email Validation: No emails found to validate.\"\n}",
+  "files": {
+    "passive_json": "outputs/sessions/findings_passive.json",
+    "active_json": "outputs/sessions/findings_active.json",
+    "report_md": "outputs/reports/attack_surface_report.md",
+    "report_html": "outputs/reports/attack_surface_report.html",
+    "report_pdf": "outputs/reports/attack_surface_report.pdf"
+  },
+  "statistics": {
+    "total_findings": 0,
+    "critical_count": 0,
+    "high_count": 0,
+    "medium_count": 0,
+    "low_count": 0,
+    "info_count": 0,
+    "subdomains_count": 0,
+    "open_ports_count": 0,
+    "all_findings_list": [],
+    "category_breakdown": {}
+  },
+  "passive_json": "outputs/sessions/findings_passive.json",
+  "active_json": "outputs/sessions/findings_active.json",
+  "report_md": "outputs/reports/attack_surface_report.md",
+  "report_html": "outputs/reports/attack_surface_report.html",
+  "report_pdf": "outputs/reports/attack_surface_report.pdf",
+  "total_findings": 0,
+  "critical_count": 0,
+  "high_count": 0,
+  "medium_count": 0,
+  "low_count": 0,
+  "info_count": 0,
+  "subdomains_count": 0,
+  "open_ports_count": 0,
+  "all_findings_list": [],
+  "category_breakdown": {}
+}

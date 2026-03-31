@@ -1,0 +1,42 @@
+# Core framework
+crewai
+crewai-tools
+langchain-openai
+langchain-core
+
+# Passive recon
+python-whois
+dnspython
+shodan
+ipwhois
+googlesearch-python
+requests
+aiohttp
+
+# Active recon
+python-nmap
+beautifulsoup4
+cryptography
+mmh3
+
+# Report
+markdown2
+weasyprint
+jinja2
+tabulate
+
+# UI
+streamlit
+plotly
+pandas
+
+# Utilities
+python-dotenv
+rich
+pydantic
+openai
+
+# Testing
+pytest
+pytest-mock
+pytest-asyncio
