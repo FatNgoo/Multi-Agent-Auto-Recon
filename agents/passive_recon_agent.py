@@ -69,7 +69,7 @@ passive_recon_agent = Agent(
     llm=llm_recon,
     verbose=True,
     allow_delegation=False,
-    memory=True,
+    memory=False,
     max_iter=25,
-    max_execution_time=300,
+    max_execution_time=600,
 )

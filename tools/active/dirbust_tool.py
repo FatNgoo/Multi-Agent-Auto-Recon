@@ -120,10 +120,15 @@ def directory_enumerator(input_json: str) -> str:
             return [r for r in results if r]
 
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        all_results = loop.run_until_complete(run_all())
-        loop.close()
+        try:
+            loop = asyncio.get_running_loop()
+            # Already inside an event loop (e.g. Jupyter, Streamlit) - run in new thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                all_results = pool.submit(asyncio.run, run_all()).result()
+        except RuntimeError:
+            # No running loop - safe to create one
+            all_results = asyncio.run(run_all())
     except Exception as e:
         return json.dumps({"error": str(e), "url": base_url})
 

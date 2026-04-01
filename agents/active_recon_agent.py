@@ -78,7 +78,7 @@ active_recon_agent = Agent(
     llm=llm_recon,
     verbose=True,
     allow_delegation=False,
-    memory=True,
+    memory=False,
     max_iter=30,
     max_execution_time=600,
 )

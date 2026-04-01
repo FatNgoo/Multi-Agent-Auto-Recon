@@ -51,7 +51,7 @@ report_agent = Agent(
     llm=llm_report,
     verbose=True,
     allow_delegation=False,
-    memory=True,
+    memory=False,
     max_iter=15,
-    max_execution_time=300,
+    max_execution_time=900,
 )

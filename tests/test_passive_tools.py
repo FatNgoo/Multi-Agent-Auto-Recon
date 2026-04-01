@@ -1,6 +1,7 @@
 """
 Unit tests for passive reconnaissance tools.
 Tests use mocking to avoid real network calls.
+CrewAI @tool decorator wraps functions into Tool objects — use .run() to invoke.
 """
 import pytest
 import json
@@ -20,7 +21,7 @@ class TestWhoisTool:
             mock_data.status = "active"
             mock_whois.return_value = mock_data
 
-            result = whois_lookup("example.com")
+            result = whois_lookup.run("example.com")
             data = json.loads(result)
             assert "registrar" in data or "error" in data
 
@@ -28,39 +29,47 @@ class TestWhoisTool:
         """Should return error JSON on invalid domain."""
         from tools.passive.whois_tool import whois_lookup
         with patch("tools.passive.whois_tool.whois.whois", side_effect=Exception("NXDOMAIN")):
-            result = whois_lookup("thisdoesnotexist12345.invalid")
+            result = whois_lookup.run("thisdoesnotexist12345.invalid")
             data = json.loads(result)
             assert "error" in data
 
 
 class TestDNSTool:
     def test_returns_json_string(self):
-        from tools.passive.dns_tool import dns_lookup
-        with patch("tools.passive.dns_tool.dns.resolver.Resolver") as MockResolver:
-            mock_res = MagicMock()
-            mock_res.resolve.return_value = [MagicMock(address="1.2.3.4")]
-            MockResolver.return_value = mock_res
+        from tools.passive.dns_tool import dns_enumeration
+        import dns.resolver as _resolver
 
-            result = dns_lookup("example.com")
+        class FakeRecord:
+            def __init__(self, val):
+                self._val = val
+            def __str__(self):
+                return self._val
+            def rstrip(self, chars=""):
+                return self._val.rstrip(chars)
+
+        def mock_resolve(domain, rtype):
+            if rtype == "A":
+                return [FakeRecord("1.2.3.4")]
+            raise _resolver.NoAnswer()
+
+        with patch("tools.passive.dns_tool.dns.resolver.resolve", side_effect=mock_resolve):
+            result = dns_enumeration.run("example.com")
             data = json.loads(result)
             assert isinstance(data, dict)
+            assert "A" in data
 
     def test_handles_nxdomain(self):
-        from tools.passive.dns_tool import dns_lookup
+        from tools.passive.dns_tool import dns_enumeration
         import dns.resolver
-        with patch("tools.passive.dns_tool.dns.resolver.Resolver") as MockResolver:
-            mock_res = MagicMock()
-            mock_res.resolve.side_effect = dns.resolver.NXDOMAIN()
-            MockResolver.return_value = mock_res
-
-            result = dns_lookup("thisdoesnotexist99999.invalid")
+        with patch("tools.passive.dns_tool.dns.resolver.resolve", side_effect=dns.resolver.NXDOMAIN()):
+            result = dns_enumeration.run("thisdoesnotexist99999.invalid")
             data = json.loads(result)
             assert isinstance(data, dict)
 
 
 class TestSubdomainTool:
     def test_returns_json_string(self):
-        from tools.passive.subdomain_tool import enumerate_subdomains
+        from tools.passive.subdomain_tool import subdomain_finder
         with patch("tools.passive.subdomain_tool.requests.get") as mock_get:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
@@ -70,21 +79,21 @@ class TestSubdomainTool:
             ]
             mock_get.return_value = mock_resp
 
-            result = enumerate_subdomains("example.com")
+            result = subdomain_finder.run("example.com")
             data = json.loads(result)
             assert isinstance(data, list) or isinstance(data, dict)
 
     def test_returns_json_on_network_error(self):
-        from tools.passive.subdomain_tool import enumerate_subdomains
+        from tools.passive.subdomain_tool import subdomain_finder
         with patch("tools.passive.subdomain_tool.requests.get", side_effect=Exception("Timeout")):
-            result = enumerate_subdomains("example.com")
+            result = subdomain_finder.run("example.com")
             data = json.loads(result)
             assert isinstance(data, (dict, list))
 
 
 class TestCertificateTool:
     def test_returns_json(self):
-        from tools.passive.certificate_tool import check_certificates
+        from tools.passive.certificate_tool import certificate_transparency
         with patch("tools.passive.certificate_tool.requests.get") as mock_get:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
@@ -99,14 +108,14 @@ class TestCertificateTool:
             ]
             mock_get.return_value = mock_resp
 
-            result = check_certificates("example.com")
+            result = certificate_transparency.run("example.com")
             data = json.loads(result)
             assert isinstance(data, (list, dict))
 
 
 class TestIPASNTool:
     def test_returns_asn_data(self):
-        from tools.passive.ip_asn_tool import lookup_ip_asn
+        from tools.passive.ip_asn_tool import ip_asn_lookup
         with patch("tools.passive.ip_asn_tool.requests.get") as mock_get:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
@@ -117,14 +126,14 @@ class TestIPASNTool:
             }
             mock_get.return_value = mock_resp
 
-            result = lookup_ip_asn("example.com")
+            result = ip_asn_lookup.run("example.com")
             data = json.loads(result)
             assert isinstance(data, dict)
 
 
 class TestWaybackTool:
     def test_returns_json(self):
-        from tools.passive.wayback_tool import wayback_lookup
+        from tools.passive.wayback_tool import wayback_machine
         with patch("tools.passive.wayback_tool.requests.get") as mock_get:
             mock_resp = MagicMock()
             mock_resp.status_code = 200
@@ -134,6 +143,6 @@ class TestWaybackTool:
             ]
             mock_get.return_value = mock_resp
 
-            result = wayback_lookup("example.com")
+            result = wayback_machine.run("example.com")
             data = json.loads(result)
             assert isinstance(data, (list, dict))

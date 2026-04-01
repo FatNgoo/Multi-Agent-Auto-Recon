@@ -35,6 +35,7 @@ python-dotenv
 rich
 pydantic
 openai
+sentence-transformers
 
 # Testing
 pytest

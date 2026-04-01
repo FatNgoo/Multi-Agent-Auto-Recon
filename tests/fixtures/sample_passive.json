@@ -27,10 +27,10 @@
     ]
   },
   "subdomains": [
-    {"domain": "scanme.nmap.org", "ip": "45.33.32.156", "source": "passive_dns"},
-    {"domain": "www.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
-    {"domain": "svn.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
-    {"domain": "nmap.org", "ip": "45.33.32.156", "source": "subfinder"}
+    {"subdomain": "scanme.nmap.org", "ip": "45.33.32.156", "source": "passive_dns"},
+    {"subdomain": "www.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
+    {"subdomain": "svn.nmap.org", "ip": "45.33.32.156", "source": "crt.sh"},
+    {"subdomain": "nmap.org", "ip": "45.33.32.156", "source": "subfinder"}
   ],
   "certificates": [
     {

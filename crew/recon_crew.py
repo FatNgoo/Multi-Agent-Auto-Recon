@@ -100,15 +100,15 @@ class ReconCrew:
 
             self._emit("INFO", "CREW", f"🤖 Assembling crew with {len(agents)} agents...", "init")
 
-            # Crew-level memory requires OpenAI embeddings by default in CrewAI 1.x
-            # Only enable if OPENAI_API_KEY is available; agents retain per-task memory via context
-            enable_crew_memory = bool(os.getenv("OPENAI_API_KEY"))
-
+            # Memory requires LLM structured-output support (json_schema response_format).
+            # DeepSeek does not support this format → triggers 400 errors.
+            # Data flow between agents is already handled via task context=[...] chaining,
+            # so crew-level memory is not needed and is disabled here.
             crew_kwargs = {
                 "agents": agents,
                 "tasks": tasks,
                 "process": Process.sequential,
-                "memory": enable_crew_memory,
+                "memory": False,
                 "verbose": True,
                 "output_log_file": f"outputs/logs/crew_run_{start_time.strftime('%Y%m%d_%H%M%S')}.log",
             }
