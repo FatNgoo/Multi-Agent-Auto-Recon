@@ -41,6 +41,10 @@ Báo cáo Markdown phải có:
 Gọi export_report với JSON: {{"report_path": "outputs/reports/attack_surface_report.md"}}
 QUAN TRỌNG: KHÔNG truyền markdown_content vào export_report — chỉ dùng report_path.
 File đã được lưu bởi report_generator ở bước trước.
+
+### DỪNG NGAY
+Sau khi export_report trả về kết quả (dù thành công hay lỗi), KHÔNG gọi thêm tool nào nữa.
+Trả lời ngay: "Báo cáo đã được tạo tại outputs/reports/attack_surface_report.md"
 """,
         expected_output=f"""Báo cáo Attack Surface hoàn chỉnh cho {target}:
 - outputs/reports/attack_surface_report.md
