@@ -3,6 +3,7 @@ import json
 import sys
 import os
 import pytest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from dotenv import load_dotenv
@@ -32,7 +33,7 @@ class TestWhoisRootDomain:
 
 
 class TestCompileToolSourceLabels:
-    def _make_input(self):
+    def _make_data(self):
         active = {
             "target": "scanme.nmap.org",
             "scan_timestamp": "2026-04-01T00:00:00Z",
@@ -60,42 +61,56 @@ class TestCompileToolSourceLabels:
             "shodan_data": {"ports": [22, 80, 123, 9929, 31337]},
             "subdomains": [],
         }
-        return json.dumps({"passive": passive, "active": active})
+        return passive, active
 
-    def test_services_labeled_active_confirmed(self):
+    def _run_compile(self, tmp_path):
         from tools.report.compile_tool import compile_all_findings
-        result = json.loads(compile_all_findings.run(self._make_input()))
+        import tools.report.compile_tool as ct
+
+        passive, active = self._make_data()
+        p_path = tmp_path / "findings_passive.json"
+        a_path = tmp_path / "findings_active.json"
+        c_path = tmp_path / "compiled_findings.json"
+        p_path.write_text(json.dumps(passive), encoding="utf-8")
+        a_path.write_text(json.dumps(active), encoding="utf-8")
+
+        with patch.object(ct, "PASSIVE_PATH", str(p_path)), \
+             patch.object(ct, "ACTIVE_PATH", str(a_path)), \
+             patch.object(ct, "COMPILED_PATH", str(c_path)):
+            compile_all_findings.run("scanme.nmap.org")
+
+        with open(c_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_services_labeled_active_confirmed(self, tmp_path):
+        result = self._run_compile(tmp_path)
         for svc in result.get("services", []):
             assert svc.get("source") == "active_confirmed", f"Missing source label on service: {svc}"
         assert len(result["services"]) == 2
 
-    def test_shodan_ports_stored_separately(self):
-        from tools.report.compile_tool import compile_all_findings
-        result = json.loads(compile_all_findings.run(self._make_input()))
+    def test_shodan_ports_stored_separately(self, tmp_path):
+        result = self._run_compile(tmp_path)
         shodan_ports = result["infrastructure"]["shodan_observed_ports"]
         assert shodan_ports == [22, 80, 123, 9929, 31337]
 
-    def test_string_cloud_buckets_are_info_not_critical(self):
-        from tools.report.compile_tool import compile_all_findings
-        result = json.loads(compile_all_findings.run(self._make_input()))
+    def test_string_cloud_buckets_are_info_not_critical(self, tmp_path):
+        result = self._run_compile(tmp_path)
         infra = result.get("infrastructure_findings", [])
         # string heuristic entries must not be Critical
         for f in infra:
             if f.get("source") == "heuristic_guess":
                 assert f["severity"] == "Info", f"Heuristic bucket promoted to {f['severity']}: {f}"
 
-    def test_verified_public_bucket_is_critical(self):
-        from tools.report.compile_tool import compile_all_findings
-        result = json.loads(compile_all_findings.run(self._make_input()))
+    def test_verified_public_bucket_is_critical(self, tmp_path):
+        result = self._run_compile(tmp_path)
         infra = result.get("infrastructure_findings", [])
         critical = [f for f in infra if f.get("severity") == "Critical"]
         assert len(critical) >= 1
         for f in critical:
             assert f.get("source") == "active_verified"
 
-    def test_statistics_count_real_findings(self):
-        from tools.report.compile_tool import compile_all_findings
-        result = json.loads(compile_all_findings.run(self._make_input()))
+    def test_statistics_count_real_findings(self, tmp_path):
+        result = self._run_compile(tmp_path)
         stats = result.get("statistics", {})
         # missing headers (2 High) + ssl (1 Medium) + waf (1 Medium) + services (2 Info) + public bucket (1 Critical)
         assert stats.get("total_findings", 0) > 0, "total_findings should be > 0"

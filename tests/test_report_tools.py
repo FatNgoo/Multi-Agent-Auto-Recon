@@ -10,24 +10,40 @@ from pathlib import Path
 
 
 class TestCompileTool:
-    def test_compiles_passive_and_active(self, sample_passive_findings, sample_active_findings):
+    def test_compiles_passive_and_active(self, sample_passive_findings, sample_active_findings, tmp_path):
         from tools.report.compile_tool import compile_all_findings
+        import tools.report.compile_tool as ct
 
-        input_data = json.dumps({
-            "passive": sample_passive_findings,
-            "active": sample_active_findings,
-        })
-        result = compile_all_findings.run(input_data)
+        # Write session files for the tool to read
+        p_path = tmp_path / "findings_passive.json"
+        a_path = tmp_path / "findings_active.json"
+        c_path = tmp_path / "compiled_findings.json"
+        p_path.write_text(json.dumps(sample_passive_findings), encoding="utf-8")
+        a_path.write_text(json.dumps(sample_active_findings), encoding="utf-8")
+
+        with patch.object(ct, "PASSIVE_PATH", str(p_path)), \
+             patch.object(ct, "ACTIVE_PATH", str(a_path)), \
+             patch.object(ct, "COMPILED_PATH", str(c_path)):
+            result = compile_all_findings.run("scanme.nmap.org")
         data = json.loads(result)
         assert isinstance(data, dict)
-        assert "services" in data or "meta" in data or "error" in data
+        assert data.get("status") == "success"
+        assert "statistics" in data
 
-    def test_handles_missing_data(self):
+    def test_handles_missing_data(self, tmp_path):
         from tools.report.compile_tool import compile_all_findings
-        result = compile_all_findings.run(json.dumps({
-            "passive": {},
-            "active": {},
-        }))
+        import tools.report.compile_tool as ct
+
+        p_path = tmp_path / "findings_passive.json"
+        a_path = tmp_path / "findings_active.json"
+        c_path = tmp_path / "compiled_findings.json"
+        p_path.write_text(json.dumps({}), encoding="utf-8")
+        a_path.write_text(json.dumps({}), encoding="utf-8")
+
+        with patch.object(ct, "PASSIVE_PATH", str(p_path)), \
+             patch.object(ct, "ACTIVE_PATH", str(a_path)), \
+             patch.object(ct, "COMPILED_PATH", str(c_path)):
+            result = compile_all_findings.run("test.example.com")
         data = json.loads(result)
         assert isinstance(data, dict)
 
@@ -56,23 +72,32 @@ class TestSeverityTool:
 
 
 class TestRiskScorerTool:
-    def test_calculates_numeric_score(self, sample_compiled_findings):
+    def test_calculates_numeric_score(self, sample_compiled_findings, tmp_path):
         from tools.report.risk_scorer_tool import risk_scorer
+        import tools.report.risk_scorer_tool as rs
 
-        with patch("tools.report.risk_scorer_tool.OpenAI") as MockClient:
+        # Write compiled findings file
+        c_path = tmp_path / "compiled_findings.json"
+        r_path = tmp_path / "risk_score.json"
+        c_path.write_text(json.dumps(sample_compiled_findings), encoding="utf-8")
+
+        with patch.object(rs, "COMPILED_PATH", str(c_path)), \
+             patch.object(rs, "RISK_PATH", str(r_path)), \
+             patch("tools.report.risk_scorer_tool.OpenAI") as MockClient:
             mock_client = MagicMock()
             mock_response = MagicMock()
             mock_response.choices = [MagicMock(message=MagicMock(content="This target has moderate risk."))]
             mock_client.chat.completions.create.return_value = mock_response
             MockClient.return_value = mock_client
 
-            result = risk_scorer.run(json.dumps(sample_compiled_findings))
+            result = risk_scorer.run("scanme.nmap.org")
             data = json.loads(result)
             assert "overall_risk_score" in data
             assert 0 <= data["overall_risk_score"] <= 100
 
-    def test_score_bounded_0_to_100(self):
+    def test_score_bounded_0_to_100(self, tmp_path):
         from tools.report.risk_scorer_tool import risk_scorer
+        import tools.report.risk_scorer_tool as rs
 
         # Input with extreme data — rule-based scoring works without LLM
         extreme_data = {
@@ -80,7 +105,13 @@ class TestRiskScorerTool:
                 "severity_breakdown": {"Critical": 100, "High": 100, "Medium": 100, "Low": 100, "Info": 100}
             }
         }
-        result = risk_scorer.run(json.dumps(extreme_data))
+        c_path = tmp_path / "compiled_findings.json"
+        r_path = tmp_path / "risk_score.json"
+        c_path.write_text(json.dumps(extreme_data), encoding="utf-8")
+
+        with patch.object(rs, "COMPILED_PATH", str(c_path)), \
+             patch.object(rs, "RISK_PATH", str(r_path)):
+            result = risk_scorer.run("extreme.example.com")
         data = json.loads(result)
         assert data["overall_risk_score"] <= 100
 
@@ -127,8 +158,17 @@ class TestCVETool:
 class TestReportGenTool:
     def test_generates_markdown_report(self, sample_compiled_findings, tmp_path):
         from tools.report.report_gen_tool import report_generator
+        import tools.report.report_gen_tool as rg
 
-        with patch("tools.report.report_gen_tool.OpenAI") as MockClient:
+        # Write compiled findings and risk score files
+        c_path = tmp_path / "compiled_findings.json"
+        r_path = tmp_path / "risk_score.json"
+        c_path.write_text(json.dumps(sample_compiled_findings), encoding="utf-8")
+        r_path.write_text(json.dumps({"overall_risk_score": 42, "risk_level": "Medium"}), encoding="utf-8")
+
+        with patch.object(rg, "COMPILED_PATH", str(c_path)), \
+             patch.object(rg, "RISK_PATH", str(r_path)), \
+             patch("tools.report.report_gen_tool.OpenAI") as MockClient:
             mock_client = MagicMock()
             mock_response = MagicMock()
             mock_response.choices = [MagicMock(message=MagicMock(
@@ -137,7 +177,7 @@ class TestReportGenTool:
             mock_client.chat.completions.create.return_value = mock_response
             MockClient.return_value = mock_client
 
-            result = report_generator.run(json.dumps(sample_compiled_findings))
+            result = report_generator.run("scanme.nmap.org")
             assert isinstance(result, str)
             assert "Report" in result or "report" in result or "error" in result.lower()
 

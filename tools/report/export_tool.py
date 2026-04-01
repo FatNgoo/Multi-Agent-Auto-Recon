@@ -182,6 +182,51 @@ def export_report(input_json: str) -> str:
         try:
             from xhtml2pdf import pisa  # type: ignore
 
+            # Register a system TTF font that supports Vietnamese characters.
+            # xhtml2pdf uses reportlab internally — register the font there.
+            _font_registered = False
+            try:
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+                import sys
+
+                # Candidate fonts (Windows → Linux → macOS fallbacks)
+                _font_candidates = [
+                    ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf",
+                     "C:/Windows/Fonts/ariali.ttf", "C:/Windows/Fonts/arialbi.ttf"),
+                ]
+                if sys.platform != "win32":
+                    _font_candidates.append(
+                        ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf",
+                         "/usr/share/fonts/truetype/dejavu/DejaVuSans-BoldOblique.ttf"),
+                    )
+
+                for regular, bold, italic, bolditalic in _font_candidates:
+                    if os.path.exists(regular):
+                        pdfmetrics.registerFont(TTFont("UniFont", regular))
+                        if os.path.exists(bold):
+                            pdfmetrics.registerFont(TTFont("UniFont-Bold", bold))
+                        if os.path.exists(italic):
+                            pdfmetrics.registerFont(TTFont("UniFont-Italic", italic))
+                        if os.path.exists(bolditalic):
+                            pdfmetrics.registerFont(TTFont("UniFont-BoldItalic", bolditalic))
+
+                        from reportlab.lib.fonts import addMapping
+                        addMapping("UniFont", 0, 0, "UniFont")        # normal
+                        addMapping("UniFont", 1, 0, "UniFont-Bold")   # bold
+                        addMapping("UniFont", 0, 1, "UniFont-Italic") # italic
+                        addMapping("UniFont", 1, 1, "UniFont-BoldItalic")  # bold-italic
+
+                        _font_registered = True
+                        break
+            except Exception:
+                pass
+
+            # Build font-family CSS based on whether registration succeeded
+            _font_family = "'UniFont', Arial, sans-serif" if _font_registered else "Arial, sans-serif"
+
             # xhtml2pdf renders from HTML source — use a simplified light CSS
             # version of the report (dark backgrounds don't print well anyway)
             # xhtml2pdf does NOT support CSS nth-child or complex selectors.
@@ -191,7 +236,7 @@ def export_report(input_json: str) -> str:
 <head>
 <meta charset="UTF-8"/>
 <style>
-  body {{ font-family: Arial, sans-serif; font-size: 11pt; color: #111; margin: 2cm; }}
+  body {{ font-family: {_font_family}; font-size: 11pt; color: #111; margin: 2cm; }}
   h1 {{ color: #003580; font-size: 18pt; }}
   h2 {{ color: #003580; font-size: 14pt; border-bottom: 1pt solid #ccc; }}
   h3 {{ color: #222; font-size: 12pt; }}

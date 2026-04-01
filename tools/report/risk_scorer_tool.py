@@ -4,22 +4,26 @@ import os
 from openai import OpenAI
 from crewai.tools import tool
 
+COMPILED_PATH = "outputs/sessions/compiled_findings.json"
+RISK_PATH = "outputs/sessions/risk_score.json"
+
 
 @tool("Overall Risk Scorer")
-def risk_scorer(compiled_findings_json: str) -> str:
+def risk_scorer(target: str) -> str:
     """
     Tính điểm rủi ro tổng thể (0-100) cho toàn bộ attack surface dựa trên
-    tất cả findings. Phân loại thành nhóm rủi ro và đưa ra tóm tắt.
-    Input: JSON string với tất cả findings đã compiled
+    tất cả findings đã compiled. Tự động đọc từ compiled_findings.json.
+    Input: target domain (ví dụ: hcmute.edu.vn)
     """
-    try:
-        findings = json.loads(compiled_findings_json)
-    except Exception:
-        return json.dumps({"error": "Invalid JSON input"})
-
-    # Unwrap if LLM wrapped compiled data under a key
-    if "compiled_findings" in findings and isinstance(findings["compiled_findings"], dict):
-        findings = findings["compiled_findings"]
+    # Read compiled findings from disk
+    if os.path.exists(COMPILED_PATH):
+        try:
+            with open(COMPILED_PATH, "r", encoding="utf-8") as f:
+                findings = json.load(f)
+        except Exception:
+            return json.dumps({"error": f"Could not read {COMPILED_PATH}"})
+    else:
+        return json.dumps({"error": f"File not found: {COMPILED_PATH}. Run compile_all_findings first."})
 
     # Rule-based scoring first
     stats = findings.get("statistics", {})
@@ -159,4 +163,21 @@ def risk_scorer(compiled_findings_json: str) -> str:
         },
     }
 
-    return json.dumps(result, ensure_ascii=False, indent=2)
+    # Save risk score to disk so report_generator can read it
+    os.makedirs("outputs/sessions", exist_ok=True)
+    with open(RISK_PATH, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    # Return compact summary
+    return json.dumps({
+        "status": "success",
+        "risk_path": RISK_PATH,
+        "overall_risk_score": base_score,
+        "risk_level": risk_level,
+        "severity_breakdown": sev,
+        "ai_summary": ai_summary,
+        "instruction": (
+            "Risk score saved. "
+            "Next: call report_generator with target name to generate the report."
+        ),
+    }, ensure_ascii=False, indent=2)

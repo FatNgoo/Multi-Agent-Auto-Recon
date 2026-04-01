@@ -5,6 +5,9 @@ from datetime import datetime
 from openai import OpenAI
 from crewai.tools import tool
 
+COMPILED_PATH = "outputs/sessions/compiled_findings.json"
+RISK_PATH = "outputs/sessions/risk_score.json"
+
 
 REPORT_SYSTEM_PROMPT = """Bạn là Principal Security Consultant với 15 năm kinh nghiệm viết pentest reports.
 Chuẩn báo cáo: PTES (Penetration Testing Execution Standard), OWASP Testing Guide v4, CVSS v3.1.
@@ -25,36 +28,39 @@ QUY TẮC EVIDENCE BẮT BUỘC:
 
 
 @tool("Attack Surface Report Generator")
-def report_generator(input_json: str) -> str:
+def report_generator(target: str) -> str:
     """
     Tạo báo cáo Attack Surface Assessment hoàn chỉnh bằng DeepSeek AI.
-    Báo cáo bao gồm Executive Summary, Findings, Risk Matrix, Recommendations.
-    Input: JSON string chứa tất cả findings đã compiled và risk score.
+    Tự động đọc compiled findings và risk score từ session files.
+    Input: target domain (ví dụ: hcmute.edu.vn)
     """
     api_key = os.getenv("DEEPSEEK_API_KEY")
+
+    # Read compiled findings from disk
+    data = {}
+    if os.path.exists(COMPILED_PATH):
+        try:
+            with open(COMPILED_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            pass
+
+    # Merge risk score data
+    if os.path.exists(RISK_PATH):
+        try:
+            with open(RISK_PATH, "r", encoding="utf-8") as f:
+                risk_data = json.load(f)
+            data["overall_risk_score"] = risk_data.get("overall_risk_score")
+            data["risk_level"] = risk_data.get("risk_level")
+            data["ai_summary"] = risk_data.get("ai_summary")
+        except Exception:
+            pass
+
+    if not data:
+        return json.dumps({"error": "No compiled findings found. Run compile_all_findings first."})
+
     if not api_key:
-        return _generate_fallback_report(input_json)
-
-    try:
-        data = json.loads(input_json)
-    except Exception:
-        data = {"raw": input_json}
-
-    # The LLM agent sometimes wraps compiled findings inside a key like
-    # "compiled_findings".  Unwrap it so that the rest of the code can
-    # access top-level keys (meta, services, statistics, …) consistently.
-    if "compiled_findings" in data and isinstance(data["compiled_findings"], dict):
-        outer = data
-        data = data["compiled_findings"]
-        # Pull risk score / cve data from the outer wrapper if not in compiled
-        if "overall_risk_score" not in data:
-            data["overall_risk_score"] = (
-                outer.get("overall_risk_score") or outer.get("risk_score")
-            )
-        if "risk_level" not in data:
-            data["risk_level"] = outer.get("risk_level")
-        if "cves" not in data:
-            data["cves"] = outer.get("cves", [])
+        return _generate_fallback_report(json.dumps(data, ensure_ascii=False))
 
     target = (data.get("meta", {}).get("target") or
               data.get("target", "Unknown Target"))
@@ -235,7 +241,7 @@ DATA:
         }, ensure_ascii=False)
 
     except Exception as e:
-        fallback = _generate_fallback_report(input_json)
+        fallback = _generate_fallback_report(json.dumps(data, ensure_ascii=False))
         return fallback
 
 

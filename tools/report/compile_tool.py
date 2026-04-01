@@ -1,28 +1,41 @@
 # tools/report/compile_tool.py
 import json
+import os
 from datetime import datetime
 from crewai.tools import tool
 
+PASSIVE_PATH = "outputs/sessions/findings_passive.json"
+ACTIVE_PATH = "outputs/sessions/findings_active.json"
+COMPILED_PATH = "outputs/sessions/compiled_findings.json"
+
 
 @tool("Compile All Findings")
-def compile_all_findings(input_json: str) -> str:
+def compile_all_findings(target: str) -> str:
     """
     Tổng hợp và normalize toàn bộ findings từ passive và active recon
     thành một dataset thống nhất sẵn sàng cho CVE lookup và báo cáo.
-    Input: JSON string {"passive": {...}, "active": {...}}
+    Tự động đọc từ outputs/sessions/findings_passive.json và findings_active.json.
+    Input: target domain (ví dụ: hcmute.edu.vn)
     """
-    try:
-        data = json.loads(input_json)
-        passive = data.get("passive", {})
-        active = data.get("active", {})
-    except Exception:
-        # Try to handle if just one findings object passed
+    passive = {}
+    active = {}
+
+    # Read from session files on disk — avoids LLM needing to pass huge JSON
+    if os.path.exists(PASSIVE_PATH):
         try:
-            data = json.loads(input_json)
-            passive = data
-            active = {}
+            with open(PASSIVE_PATH, "r", encoding="utf-8") as f:
+                passive = json.load(f)
         except Exception:
-            return json.dumps({"error": "Invalid JSON input"})
+            pass
+    if os.path.exists(ACTIVE_PATH):
+        try:
+            with open(ACTIVE_PATH, "r", encoding="utf-8") as f:
+                active = json.load(f)
+        except Exception:
+            pass
+
+    if not passive and not active:
+        return json.dumps({"error": "No findings files found in outputs/sessions/"})
 
     compiled = {
         "meta": {
@@ -247,4 +260,19 @@ def compile_all_findings(input_json: str) -> str:
         ],
     }
 
-    return json.dumps(compiled, ensure_ascii=False, indent=2)
+    # Save compiled findings to disk so downstream tools can read it
+    os.makedirs("outputs/sessions", exist_ok=True)
+    with open(COMPILED_PATH, "w", encoding="utf-8") as f:
+        json.dump(compiled, f, ensure_ascii=False, indent=2)
+
+    # Return compact summary — NOT the full JSON
+    return json.dumps({
+        "status": "success",
+        "compiled_path": COMPILED_PATH,
+        "target": compiled["meta"]["target"],
+        "statistics": compiled["statistics"],
+        "instruction": (
+            "Compiled findings saved. "
+            "Next: call risk_scorer with target name to calculate risk score."
+        ),
+    }, ensure_ascii=False, indent=2)

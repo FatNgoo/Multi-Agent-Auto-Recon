@@ -14,33 +14,29 @@ def create_report_task(target: str, passive_task: Task, active_task: Task) -> Ta
 
 **Target:** {target}
 
-Bạn có toàn bộ findings từ passive và active recon trong context.
+Tất cả findings đã được lưu vào files. Các tool sẽ TỰ ĐỘNG đọc từ disk.
 Thực hiện ĐÚNG THỨ TỰ các bước sau — mỗi bước gọi tool MỘT LẦN:
 
 ### Bước 1: Compile
-Gọi compile_all_findings một lần với toàn bộ context (passive + active).
+Gọi compile_all_findings("{target}")
+Tool sẽ tự đọc từ outputs/sessions/findings_passive.json và findings_active.json.
 
 ### Bước 2: CVE Lookup (tối đa 3 service quan trọng nhất)
-Chọn tối đa 3 versioned service (ví dụ: nginx, openssh, apache) và gọi:
+Chọn tối đa 3 versioned service từ kết quả compile (ví dụ: nginx, openssh, apache) và gọi:
 cve_lookup({{"service": "<tên>", "version": "<version>"}})
 Nếu không có versioned service nào, bỏ qua bước này.
 
 ### Bước 3: Risk Score
-Gọi risk_scorer một lần với toàn bộ findings đã compile.
+Gọi risk_scorer("{target}")
+Tool sẽ tự đọc compiled findings từ disk.
 
 ### Bước 4: Generate Report
-Gọi report_generator một lần với merged data từ các bước trên.
-Báo cáo Markdown phải có:
-- Executive Summary (non-technical, 200-300 từ)
-- Attack Surface Overview
-- Findings Summary Table (Severity, Title, CVSS)
-- Top Findings với evidence và recommendation
-- Remediation Roadmap (Immediate / Short / Long-term)
+Gọi report_generator("{target}")
+Tool sẽ tự đọc compiled findings và risk score từ disk.
 
 ### Bước 5: Export
 Gọi export_report với JSON: {{"report_path": "outputs/reports/attack_surface_report.md"}}
-QUAN TRỌNG: KHÔNG truyền markdown_content vào export_report — chỉ dùng report_path.
-File đã được lưu bởi report_generator ở bước trước.
+QUAN TRỌNG: KHÔNG truyền markdown_content — chỉ dùng report_path.
 
 ### DỪNG NGAY
 Sau khi export_report trả về kết quả (dù thành công hay lỗi), KHÔNG gọi thêm tool nào nữa.
@@ -67,19 +63,12 @@ def create_report_task_simple(target: str) -> Task:
 
 Tạo báo cáo Attack Surface cho {target}:
 
-1. Đọc findings từ files:
-   - outputs/sessions/findings_passive.json (nếu có)
-   - outputs/sessions/findings_active.json (nếu có)
+1. compile_all_findings("{target}") — tự đọc từ session files
+2. risk_scorer("{target}") — tự đọc compiled findings
+3. report_generator("{target}") — tự đọc compiled + risk score
+4. export_report({{"report_path": "outputs/reports/attack_surface_report.md"}})
 
-2. compile_all_findings với data đọc được
-
-3. risk_scorer để tính điểm rủi ro
-
-4. report_generator để tạo báo cáo Markdown
-
-5. export_report để xuất HTML và PDF
-
-Output: Báo cáo đầy đủ tại outputs/reports/attack_surface_report.md
+DỪNG NGAY sau khi export_report hoàn tất.
 """,
         expected_output="Attack Surface Report đầy đủ",
         agent=report_agent,
