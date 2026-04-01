@@ -80,8 +80,8 @@ def waf_detector(url: str) -> str:
         normal_cookies = {k.lower(): v.lower() for k, v in resp_normal.cookies.items()}
         normal_body = resp_normal.text[:5000].lower()
 
-        # Attack simulation request
-        attack_url = resp_normal.url + "?id=1+AND+1=1--"
+        # Attack simulation request (strip existing query string to avoid double '?')
+        attack_url = resp_normal.url.split("?")[0] + "?id=1+AND+1=1--"
         try:
             resp_attack = requests.get(attack_url, headers=_HEADERS, timeout=15,
                                        allow_redirects=True, verify=False)

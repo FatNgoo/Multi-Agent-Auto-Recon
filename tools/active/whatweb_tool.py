@@ -45,9 +45,7 @@ def whatweb_fingerprint(url: str) -> str:
     from tools.active.http_helper import normalize_url, smart_request
     url = normalize_url(url)
 
-    try:
-        resp = smart_request(url, timeout=15, headers=HEADERS)
-
+    def _build_result(resp):
         body = resp.text
         headers_str = str(resp.headers)
         combined = body + headers_str
@@ -59,16 +57,11 @@ def whatweb_fingerprint(url: str) -> str:
                     detected[tech] = True
                     break
 
-        # Extract meta generator
         soup = BeautifulSoup(body, "html.parser")
         generator_meta = soup.find("meta", attrs={"name": re.compile("generator", re.I)})
         generator = generator_meta.get("content", "") if generator_meta else ""
-
-        # Extract title
         title_tag = soup.find("title")
         page_title = title_tag.get_text(strip=True) if title_tag else ""
-
-        # Extract server header
         server = resp.headers.get("Server", "") or resp.headers.get("server", "")
         powered_by = resp.headers.get("X-Powered-By", "")
 
@@ -85,6 +78,10 @@ def whatweb_fingerprint(url: str) -> str:
             "content_type": resp.headers.get("Content-Type", ""),
         }, ensure_ascii=False, indent=2)
 
+    try:
+        resp = smart_request(url, timeout=15, headers=HEADERS)
+        return _build_result(resp)
+
     except requests.exceptions.SSLError:
         # Retry without SSL verification
         try:
@@ -92,7 +89,7 @@ def whatweb_fingerprint(url: str) -> str:
             urllib3.disable_warnings()
             resp = requests.get(url, headers=HEADERS, timeout=15,
                                 allow_redirects=True, verify=False)
-            return whatweb_fingerprint.__wrapped__(url)
+            return _build_result(resp)
         except Exception:
             pass
         return json.dumps({"error": "SSL error", "url": url})

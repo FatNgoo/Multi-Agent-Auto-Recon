@@ -16,6 +16,9 @@ def cve_lookup(input_json: str) -> str:
     try:
         try:
             params = json.loads(input_json)
+            # Handle list input: take the first service entry
+            if isinstance(params, list):
+                params = params[0] if params else {}
             service = params.get("service", "")
             version = params.get("version", "")
         except Exception:

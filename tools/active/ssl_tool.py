@@ -66,7 +66,8 @@ def ssl_tls_checker(host: str) -> str:
                     if expiry_str:
                         expiry = datetime.datetime.strptime(expiry_str, "%b %d %H:%M:%S %Y %Z")
                         result["cert_expiry"] = expiry.isoformat()
-                        days_left = (expiry - datetime.datetime.utcnow()).days
+                        now_utc = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                        days_left = (expiry - now_utc).days
                         result["cert_expiry_days"] = days_left
                         if days_left < 0:
                             issues.append({"type": "expired_cert", "severity": "Critical",
