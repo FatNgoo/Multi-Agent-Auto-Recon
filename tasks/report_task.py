@@ -15,43 +15,30 @@ def create_report_task(target: str, passive_task: Task, active_task: Task) -> Ta
 **Target:** {target}
 
 Bạn có toàn bộ findings từ passive và active recon trong context.
-Hãy suy nghĩ từng bước (Chain-of-Thought) để tạo báo cáo hoàn chỉnh:
+Thực hiện ĐÚNG THỨ TỰ các bước sau — mỗi bước gọi tool MỘT LẦN:
 
-### CoT Step 1: Compile & Normalize
-- compile_all_findings({{"passive": <passive_data>, "active": <active_data>}})
-- Merge tất cả findings vào một dataset thống nhất
-- Loại bỏ duplicates, normalize format
+### Bước 1: Compile
+Gọi compile_all_findings một lần với toàn bộ context (passive + active).
 
-### CoT Step 2: CVE & Vulnerability Research
-- Với mỗi service version tìm được trong active scan:
-  cve_lookup({{"service": "nginx", "version": "1.18.0"}}) cho từng service
-- Tìm tối thiểu top CVE phổ biến nhất (nếu có versioned services)
+### Bước 2: CVE Lookup (tối đa 3 service quan trọng nhất)
+Chọn tối đa 3 versioned service (ví dụ: nginx, openssh, apache) và gọi:
+cve_lookup({{"service": "<tên>", "version": "<version>"}})
+Nếu không có versioned service nào, bỏ qua bước này.
 
-### CoT Step 3: Risk Classification
-- severity_classifier(<finding_json>) cho mỗi finding quan trọng
-- Phân loại: Critical (9-10), High (7-8.9), Medium (4-6.9), Low (0.1-3.9), Info (0)
-- risk_scorer(<all_findings_json>) → overall risk score
+### Bước 3: Risk Score
+Gọi risk_scorer một lần với toàn bộ findings đã compile.
 
-### CoT Step 4: Generate Report
-- report_generator(<merged_data_json>) → Markdown report đầy đủ
+### Bước 4: Generate Report
+Gọi report_generator một lần với merged data từ các bước trên.
+Báo cáo Markdown phải có:
+- Executive Summary (non-technical, 200-300 từ)
+- Attack Surface Overview
+- Findings Summary Table (Severity, Title, CVSS)
+- Top Findings với evidence và recommendation
+- Remediation Roadmap (Immediate / Short / Long-term)
 
-### CoT Step 5: Export
-- export_report({{"report_path": "outputs/reports/attack_surface_report.md"}})
-
-### Sections BẮT BUỘC trong báo cáo:
-1. Executive Summary (200-300 từ, không tech jargon)
-2. Scope & Methodology
-3. Attack Surface Overview
-4. Findings Summary Table (ID, Severity, Category, Title, CVSS)
-5. Detailed Technical Findings (description, evidence, impact, recommendation)
-6. Risk Matrix (Likelihood vs Impact)
-7. Remediation Roadmap (Immediate/Short/Long-term)
-8. Appendix (raw data summary, tools used)
-
-### Yêu cầu chất lượng:
-- Mỗi Critical/High finding phải có CVE reference nếu có thể
-- Executive Summary readable cho non-technical stakeholder
-- Recommendations phải cụ thể, có thể thực hiện ngay
+### Bước 5: Export
+Gọi export_report({{"report_path": "outputs/reports/attack_surface_report.md"}}) để xuất HTML/PDF.
 """,
         expected_output=f"""Báo cáo Attack Surface hoàn chỉnh cho {target}:
 - outputs/reports/attack_surface_report.md

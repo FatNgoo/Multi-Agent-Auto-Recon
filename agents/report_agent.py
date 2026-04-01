@@ -52,6 +52,6 @@ report_agent = Agent(
     verbose=True,
     allow_delegation=False,
     memory=False,
-    max_iter=15,
-    max_execution_time=900,
+    max_iter=20,
+    max_execution_time=1800,
 )
