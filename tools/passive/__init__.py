@@ -13,6 +13,7 @@ from .dnsdumpster_tool import dnsdumpster_lookup
 from .viewdns_tool import viewdns_lookup
 from .urlscan_tool import urlscan_passive
 from .reverse_whois_tool import reverse_whois
+from .finalize_tool import finalize_passive_findings
 
 __all__ = [
     "whois_lookup",
@@ -29,5 +30,6 @@ __all__ = [
     "viewdns_lookup",
     "urlscan_passive",
     "reverse_whois",
+    "finalize_passive_findings",
 ]
 

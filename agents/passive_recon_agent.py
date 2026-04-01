@@ -16,6 +16,7 @@ from tools.passive import (
     viewdns_lookup,
     urlscan_passive,
     reverse_whois,
+    finalize_passive_findings,
 )
 
 
@@ -64,6 +65,7 @@ passive_recon_agent = Agent(
         viewdns_lookup,
         urlscan_passive,
         reverse_whois,
+        finalize_passive_findings,
     ],
 
     llm=llm_recon,

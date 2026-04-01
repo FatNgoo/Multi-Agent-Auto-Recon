@@ -17,6 +17,7 @@ from tools.active import (
     param_discoverer,
     cloud_asset_finder,
     http_method_checker,
+    finalize_active_findings,
 )
 
 
@@ -73,6 +74,7 @@ active_recon_agent = Agent(
         param_discoverer,
         cloud_asset_finder,
         http_method_checker,
+        finalize_active_findings,
     ],
 
     llm=llm_recon,

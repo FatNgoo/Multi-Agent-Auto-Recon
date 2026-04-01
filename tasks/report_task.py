@@ -49,7 +49,6 @@ Trả lời ngay: "Báo cáo đã được tạo tại outputs/reports/attack_su
 Kèm theo risk score tổng thể (0-100) và danh sách top findings.""",
         agent=report_agent,
         context=[passive_task, active_task],
-        output_file="outputs/reports/attack_surface_report.md",
     )
 
 
@@ -72,7 +71,6 @@ DỪNG NGAY sau khi export_report hoàn tất.
 """,
         expected_output="Attack Surface Report đầy đủ",
         agent=report_agent,
-        output_file="outputs/reports/attack_surface_report.md",
     )
 
 

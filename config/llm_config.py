@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def get_deepseek_llm(temperature: float = 0.1, max_tokens: int = 4096) -> LLM:
+def get_deepseek_llm(temperature: float = 0.1, max_tokens: int = 8192) -> LLM:
     """Initialize DeepSeek LLM using crewai.LLM (CrewAI 1.x compatible)."""
     return LLM(
         model="deepseek/deepseek-chat",

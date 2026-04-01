@@ -90,7 +90,7 @@ def wayback_machine(domain: str) -> str:
                     })
                     break
 
-        return json.dumps({
+        wayback_result = {
             "domain": domain,
             "total_snapshots": len(rows),
             "total_unique_urls": len(all_urls),
@@ -99,7 +99,20 @@ def wayback_machine(domain: str) -> str:
             "interesting_urls": interesting_urls[:30],
             "old_subdomains": list(old_subdomains)[:20],
             "file_exposures": file_exposures[:20],
-        }, ensure_ascii=False, indent=2)
+        }
+
+        # Auto-save to cache so finalize_passive_findings can read it
+        import os
+        os.makedirs("outputs/sessions", exist_ok=True)
+        cache_path = "outputs/sessions/_cache_wayback.json"
+        try:
+            with open(cache_path, "w", encoding="utf-8") as _f:
+                import json as _json
+                _json.dump(wayback_result, _f, ensure_ascii=False)
+        except Exception:
+            pass
+
+        return json.dumps(wayback_result, ensure_ascii=False, indent=2)
 
     except Exception as e:
         return json.dumps({"error": str(e), "domain": domain})

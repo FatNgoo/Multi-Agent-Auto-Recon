@@ -101,11 +101,24 @@ def url_crawler(input_json: str) -> str:
                 interesting.append({"url": url_entry["url"], "keyword": kw})
                 break
 
-    return json.dumps({
+    crawler_result = {
         "base_url": base_url,
         "total_urls_found": len(found_urls),
         "max_depth": max_depth,
         "urls": found_urls[:100],
         "forms": forms_found[:20],
         "interesting_urls": interesting[:30],
-    }, ensure_ascii=False, indent=2)
+    }
+
+    # Auto-save all_urls to cache so finalize_active_findings can read it
+    import os as _os
+    _os.makedirs("outputs/sessions", exist_ok=True)
+    cache_path = "outputs/sessions/_cache_urls.json"
+    try:
+        with open(cache_path, "w", encoding="utf-8") as _f:
+            import json as _json2
+            _json2.dump([u["url"] for u in found_urls], _f, ensure_ascii=False)
+    except Exception:
+        pass
+
+    return json.dumps(crawler_result, ensure_ascii=False, indent=2)

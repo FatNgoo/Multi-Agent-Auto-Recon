@@ -248,6 +248,16 @@ def subdomain_finder(domain: str) -> str:
         for sub, info in sorted(found.items())
     ]
 
+    # ── Auto-save to cache so finalize_passive_findings can read it ───────────
+    os.makedirs("outputs/sessions", exist_ok=True)
+    cache_path = "outputs/sessions/_cache_subdomains.json"
+    try:
+        with open(cache_path, "w", encoding="utf-8") as _f:
+            import json as _json
+            _json.dump(result_list, _f, ensure_ascii=False)
+    except Exception:
+        pass
+
     return json.dumps({
         "domain": domain,
         "total_found": len(result_list),

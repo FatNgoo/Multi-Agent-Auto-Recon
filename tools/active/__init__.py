@@ -14,6 +14,7 @@ from .crawler_tool import url_crawler
 from .param_tool import param_discoverer
 from .cloud_tool import cloud_asset_finder
 from .http_method_tool import http_method_checker
+from .finalize_tool import finalize_active_findings
 
 __all__ = [
     "nmap_port_scan",
@@ -31,5 +32,6 @@ __all__ = [
     "param_discoverer",
     "cloud_asset_finder",
     "http_method_checker",
+    "finalize_active_findings",
 ]
 

@@ -45,70 +45,40 @@ Lấy IPs từ passive findings (dns_records.A + asn_info.cidr):
 - cloud_asset_finder("{target}")
 - http_method_checker("http://{target}")
 
-### FORMAT OUTPUT BẮT BUỘC (JSON):
-{{
-    "target": "{target}",
-    "scan_timestamp": "<ISO8601>",
-    "hosts_scanned": [],
-    "open_ports": {{
-        "<host_ip>": {{
-            "<port>": {{
-                "state": "open",
-                "protocol": "tcp",
-                "service": "http",
-                "version": "nginx 1.18.0",
-                "banner": ""
-            }}
-        }}
-    }},
-    "web_technologies": {{
-        "{target}": {{
-            "cms": "", "server": "", "framework": "",
-            "language": "", "cdn": "", "analytics": [],
-            "libraries": []
-        }}
-    }},
-    "ssl_findings": [
-        {{
-            "host": "", "issue": "",
-            "tls_versions": [], "weak_ciphers": [],
-            "cert_expiry_days": 0, "cert_cn": ""
-        }}
-    ],
-    "missing_headers": {{
-        "{target}": ["header1", "header2"]
-    }},
-    "waf_info": {{
-        "{target}": {{"detected": false, "product": null}}
-    }},
-    "discovered_paths": {{
-        "{target}": ["/admin", "/backup"]
-    }},
-    "discovered_params": {{
-        "https://{target}": ["id", "user"]
-    }},
-    "cloud_assets": {{
-        "s3_buckets": [], "azure_blobs": [], "gcs_buckets": []
-    }},
-    "dangerous_methods": {{
-        "{target}": []
-    }},
-    "robots_txt_paths": {{
-        "{target}": {{"disallowed": [], "allowed": [], "sitemaps": []}}
-    }},
-    "favicon_hash": {{
-        "{target}": {{"hash": null, "shodan_query": ""}}
-    }},
-    "all_urls": [],
-    "raw_active_notes": ""
-}}
+### Bước 6: LƯU KẾT QUẢ (BẮT BUỘC - BƯỚC CUỐI)
+Gọi finalize_active_findings với compact JSON chứa TẤT CẢ findings
+(KHÔNG include all_urls — đã được lưu tự động bởi url_crawler):
+
+finalize_active_findings('{{
+  "target": "{target}",
+  "scan_timestamp": "<ISO8601 hiện tại>",
+  "hosts_scanned": ["<ip1>"],
+  "open_ports": {{"<ip>": {{"<port>": {{"state": "open", "protocol": "tcp",
+    "service": "", "version": "", "banner": ""}}}}}},
+  "web_technologies": {{"{target}": {{"cms": null, "server": "", "framework": "",
+    "language": "", "cdn": [], "analytics": [], "libraries": []}}}},
+  "ssl_findings": [{{"host": "", "issue": "", "tls_versions": [],
+    "weak_ciphers": [], "cert_expiry_days": 0, "cert_cn": ""}}],
+  "missing_headers": {{"{target}": []}},
+  "waf_info": {{"{target}": {{"detected": false, "product": null}}}},
+  "discovered_paths": {{"{target}": []}},
+  "discovered_params": {{"https://{target}": []}},
+  "cloud_assets": {{"s3_buckets": [], "azure_blobs": [], "gcs_buckets": []}},
+  "dangerous_methods": {{"{target}": []}},
+  "robots_txt_paths": {{"{target}": {{"disallowed": [], "allowed": [], "sitemaps": []}}}},
+  "favicon_hash": {{"{target}": {{"hash": null, "shodan_query": ""}}}},
+  "raw_active_notes": ""
+}}')
+
+**QUAN TRỌNG:**
+- Điền dữ liệu thực từ tool outputs vào JSON trên
+- KHÔNG include "all_urls" (tự động từ url_crawler cache)
+- Sau khi finalize_active_findings thành công, TASK HOÀN TẤT
 """,
-        expected_output=f"""JSON object đầy đủ theo format trên với
-tất cả active scan results cho target {target}.
-File lưu tại outputs/sessions/findings_active.json""",
+        expected_output=f"""Xác nhận đã gọi finalize_active_findings thành công cho {target}.
+File đã được lưu tại outputs/sessions/findings_active.json""",
         agent=active_recon_agent,
         context=[passive_task],
-        output_file="outputs/sessions/findings_active.json",
     )
 
 
@@ -135,7 +105,6 @@ Output: JSON với open_ports, ssl_findings, missing_headers, waf_info, discover
 """,
         expected_output="JSON object với active scan results",
         agent=active_recon_agent,
-        output_file="outputs/sessions/findings_active.json",
     )
 
 
