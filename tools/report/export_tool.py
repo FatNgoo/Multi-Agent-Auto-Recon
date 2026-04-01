@@ -64,6 +64,7 @@ def export_report(input_json: str) -> str:
         results["errors"].append(f"Markdown save error: {e}")
 
     # Convert to HTML
+    html_body = ""  # initialized here so PDF fallback can always reference it
     try:
         import markdown2
         html_body = markdown2.markdown(
@@ -175,22 +176,53 @@ def export_report(input_json: str) -> str:
             results["files"]["pdf"] = pdf_path
         else:
             results["errors"].append("HTML file not found for PDF conversion")
-    except ImportError:
-        results["errors"].append(
-            "weasyprint not installed or has missing dependencies. "
-            "PDF export skipped. Run: pip install weasyprint"
-        )
-        # Try alternative: pdfkit
+    except (ImportError, OSError, Exception) as _weasy_err:
+        # WeasyPrint requires libgobject/pango (Linux/macOS GTK). On Windows,
+        # fall back to xhtml2pdf which is pure-Python.
         try:
-            import pdfkit  # type: ignore
-            if os.path.exists(html_path):
-                pdfkit.from_file(html_path, pdf_path)
+            from xhtml2pdf import pisa  # type: ignore
+
+            # xhtml2pdf renders from HTML source — use a simplified light CSS
+            # version of the report (dark backgrounds don't print well anyway)
+            # xhtml2pdf does NOT support CSS nth-child or complex selectors.
+            # Keep CSS minimal; use only element selectors.
+            light_html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<style>
+  body {{ font-family: Arial, sans-serif; font-size: 11pt; color: #111; margin: 2cm; }}
+  h1 {{ color: #003580; font-size: 18pt; }}
+  h2 {{ color: #003580; font-size: 14pt; border-bottom: 1pt solid #ccc; }}
+  h3 {{ color: #222; font-size: 12pt; }}
+  table {{ border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }}
+  th {{ background: #003580; color: #fff; border: 1pt solid #aaa; padding: 4pt; }}
+  td {{ border: 1pt solid #ccc; padding: 4pt; }}
+  code {{ background: #f0f0f0; padding: 1pt 3pt; font-size: 9pt; }}
+  pre {{ background: #f0f0f0; padding: 6pt; font-size: 9pt; }}
+</style>
+</head>
+<body>
+{html_body}
+</body>
+</html>"""
+            import io as _io
+            with open(pdf_path, "wb") as pdf_file:
+                pisa_status = pisa.CreatePDF(
+                    _io.StringIO(light_html), dest=pdf_file, encoding="utf-8"
+                )
+            if not pisa_status.err:
                 results["pdf_exported"] = True
                 results["files"]["pdf"] = pdf_path
+            else:
+                results["errors"].append(f"xhtml2pdf render error (code {pisa_status.err})")
         except ImportError:
-            pass
-    except Exception as e:
-        results["errors"].append(f"PDF export error: {str(e)}")
+            results["errors"].append(
+                "PDF export unavailable: install xhtml2pdf (pip install xhtml2pdf) "
+                "or weasyprint with GTK libraries."
+            )
+        except Exception as xpdf_err:
+            results["errors"].append(f"xhtml2pdf error: {xpdf_err}")
 
     results["summary"] = (
         f"Export complete: "

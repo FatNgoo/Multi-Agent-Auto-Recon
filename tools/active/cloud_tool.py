@@ -57,7 +57,15 @@ def cloud_asset_finder(domain: str) -> str:
                         else "REDIRECT" if r.status_code in [301, 302]
                         else "EXISTS_PRIVATE"
                     )
-                    return {"name": name, "url": url, "status": status, "http_code": r.status_code}
+                    return {
+                        "name": name,
+                        "url": url,
+                        "status": status,
+                        "http_code": r.status_code,
+                        # Confidence is "verified" only when the bucket actually
+                        # responds with 200/403 from AWS — not a guess.
+                        "confidence": "verified",
+                    }
             except Exception:
                 pass
         return None
@@ -72,6 +80,7 @@ def cloud_asset_finder(domain: str) -> str:
                     "url": url,
                     "status": "EXISTS" if r.status_code in [200, 403] else "MAYBE",
                     "http_code": r.status_code,
+                    "confidence": "verified",
                 }
         except Exception:
             pass
@@ -87,6 +96,7 @@ def cloud_asset_finder(domain: str) -> str:
                     "url": url,
                     "status": "PUBLIC" if r.status_code == 200 else "EXISTS_PRIVATE",
                     "http_code": r.status_code,
+                    "confidence": "verified",
                 }
         except Exception:
             pass
@@ -118,7 +128,13 @@ def cloud_asset_finder(domain: str) -> str:
 
     public_count = sum(
         1 for b in results["s3_buckets"] + results["gcs_buckets"]
-        if b.get("status") == "PUBLIC"
+        if isinstance(b, dict) and b.get("status") == "PUBLIC"
+    )
+    verified_count = sum(
+        1 for b in (
+            results["s3_buckets"] + results["azure_blobs"] + results["gcs_buckets"]
+        )
+        if isinstance(b, dict) and b.get("confidence") == "verified"
     )
 
     results["summary"] = {
@@ -127,8 +143,14 @@ def cloud_asset_finder(domain: str) -> str:
             len(results["azure_blobs"]) +
             len(results["gcs_buckets"])
         ),
+        "verified_exist": verified_count,
         "public_buckets": public_count,
-        "risk": "Critical" if public_count > 0 else "Low",
+        "risk": "Critical" if public_count > 0 else ("Medium" if verified_count > 0 else "Low"),
+        "note": (
+            "All bucket names are generated from domain-derived patterns. "
+            "Only entries with confidence='verified' received HTTP responses. "
+            "Treat unverified entries as informational only."
+        ),
     }
 
     return json.dumps(results, ensure_ascii=False, indent=2)

@@ -38,7 +38,9 @@ Báo cáo Markdown phải có:
 - Remediation Roadmap (Immediate / Short / Long-term)
 
 ### Bước 5: Export
-Gọi export_report({{"report_path": "outputs/reports/attack_surface_report.md"}}) để xuất HTML/PDF.
+Gọi export_report với JSON: {{"report_path": "outputs/reports/attack_surface_report.md"}}
+QUAN TRỌNG: KHÔNG truyền markdown_content vào export_report — chỉ dùng report_path.
+File đã được lưu bởi report_generator ở bước trước.
 """,
         expected_output=f"""Báo cáo Attack Surface hoàn chỉnh cho {target}:
 - outputs/reports/attack_surface_report.md

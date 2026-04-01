@@ -42,6 +42,9 @@ def compile_all_findings(input_json: str) -> str:
             "asn": passive.get("asn_info", {}).get("asn"),
             "asn_org": passive.get("asn_info", {}).get("org"),
             "cidr_ranges": passive.get("asn_info", {}).get("cidr", []),
+            # Clearly separate Shodan-observed ports (passive intelligence) from
+            # active-confirmed ports.  Report consumers MUST NOT mix these two.
+            "shodan_observed_ports": passive.get("shodan_data", {}).get("ports", []),
         },
         "services": [],
         "web_findings": [],
@@ -49,7 +52,7 @@ def compile_all_findings(input_json: str) -> str:
         "infrastructure_findings": [],
     }
 
-    # Extract services from active scan open ports
+    # Extract services from active scan open ports — label source as "active_confirmed"
     for host, ports in active.get("open_ports", {}).items():
         if isinstance(ports, dict):
             for port_num, port_info in ports.items():
@@ -66,6 +69,8 @@ def compile_all_findings(input_json: str) -> str:
                         "severity": "Info",
                         "cvss_score": 0.0,
                         "cves": [],
+                        # Evidence source — used by report to avoid mixing with Shodan
+                        "source": "active_confirmed",
                     }
                     compiled["services"].append(service_entry)
 
@@ -78,8 +83,8 @@ def compile_all_findings(input_json: str) -> str:
                 "title": f"SSL/TLS Issue: {finding.get('issue', 'Configuration problem')}",
                 "detail": finding,
                 "severity": (
-                    "Critical" if finding.get("cert_expiry_days", 9999) < 0
-                    else "High" if "1.0" in str(finding.get("tls_versions", [])) or finding.get("cert_expiry_days", 9999) < 30
+                    "Critical" if (finding.get("cert_expiry_days") or 9999) < 0
+                    else "High" if "1.0" in str(finding.get("tls_versions", [])) or (finding.get("cert_expiry_days") or 9999) < 30
                     else "Medium"
                 ),
             })
@@ -130,23 +135,53 @@ def compile_all_findings(input_json: str) -> str:
             "detail": {"urls": interesting_urls[:20]},
         })
 
-    # Cloud findings
+    # Cloud findings — only add truly PUBLIC/verified buckets as Critical findings.
+    # Heuristic-only or EXISTS_PRIVATE entries are informational, not in report findings.
     cloud = active.get("cloud_assets", {})
     for bucket in cloud.get("s3_buckets", []) + cloud.get("gcs_buckets", []):
-        if isinstance(bucket, dict) and bucket.get("status") == "PUBLIC":
+        # Buckets may be dicts (from tool output) or strings (from LLM summary)
+        if isinstance(bucket, dict):
+            if bucket.get("status") == "PUBLIC":
+                compiled["infrastructure_findings"].append({
+                    "category": "cloud_misconfiguration",
+                    "title": f"Public Cloud Storage Bucket: {bucket.get('name', 'unknown')}",
+                    "severity": "Critical",
+                    "detail": bucket,
+                    "source": "active_verified",
+                })
+            elif bucket.get("status") in ("EXISTS_PRIVATE", "REDIRECT"):
+                compiled["infrastructure_findings"].append({
+                    "category": "cloud_asset",
+                    "title": f"Cloud Storage Bucket Exists (Private): {bucket.get('name', 'unknown')}",
+                    "severity": "Info",
+                    "detail": bucket,
+                    "source": "active_verified",
+                })
+        # String entries are LLM-summarised heuristics — treat as Info only
+        elif isinstance(bucket, str) and bucket:
             compiled["infrastructure_findings"].append({
-                "category": "cloud_misconfiguration",
-                "title": f"Public Cloud Storage Bucket: {bucket.get('name', 'unknown')}",
-                "severity": "Critical",
-                "detail": bucket,
+                "category": "cloud_asset",
+                "title": f"Cloud Bucket Name Pattern (Unverified): {bucket}",
+                "severity": "Info",
+                "detail": {"name": bucket, "confidence": "heuristic"},
+                "source": "heuristic_guess",
             })
     for blob in cloud.get("azure_blobs", []):
         if isinstance(blob, dict) and blob.get("status") in ["EXISTS", "PUBLIC"]:
             compiled["infrastructure_findings"].append({
                 "category": "cloud_misconfiguration",
                 "title": f"Azure Blob Storage Found: {blob.get('name', 'unknown')}",
-                "severity": "High",
+                "severity": "High" if blob.get("status") == "PUBLIC" else "Medium",
                 "detail": blob,
+                "source": "active_verified",
+            })
+        elif isinstance(blob, str) and blob:
+            compiled["infrastructure_findings"].append({
+                "category": "cloud_asset",
+                "title": f"Azure Blob Name Pattern (Unverified): {blob}",
+                "severity": "Info",
+                "detail": {"name": blob, "confidence": "heuristic"},
+                "source": "heuristic_guess",
             })
 
     # Dangerous HTTP methods

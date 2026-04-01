@@ -17,6 +17,10 @@ def risk_scorer(compiled_findings_json: str) -> str:
     except Exception:
         return json.dumps({"error": "Invalid JSON input"})
 
+    # Unwrap if LLM wrapped compiled data under a key
+    if "compiled_findings" in findings and isinstance(findings["compiled_findings"], dict):
+        findings = findings["compiled_findings"]
+
     # Rule-based scoring first
     stats = findings.get("statistics", {})
     sev = stats.get("severity_breakdown", {})

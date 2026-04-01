@@ -21,7 +21,9 @@ mmh3
 
 # Report
 markdown2
-weasyprint
+weasyprint; sys_platform != "win32"
+xhtml2pdf>=0.2.17
+reportlab>=4.0
 jinja2
 tabulate
 

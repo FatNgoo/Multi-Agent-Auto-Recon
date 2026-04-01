@@ -171,7 +171,7 @@ class ReconCrew:
             }
 
     def _gather_stats(self, output_files: dict) -> dict:
-        """Read output files and gather statistics."""
+        """Read output files and gather statistics from compiled findings."""
         stats = {
             "total_findings": 0,
             "critical_count": 0,
@@ -185,9 +185,11 @@ class ReconCrew:
             "category_breakdown": {},
         }
 
-        # Try to read compiled findings from report output
         passive_path = output_files.get("passive_json", "")
         active_path = output_files.get("active_json", "")
+
+        passive_data = {}
+        active_data = {}
 
         try:
             if Path(passive_path).exists():
@@ -207,6 +209,134 @@ class ReconCrew:
                     if isinstance(ports, dict)
                 )
                 stats["open_ports_count"] = port_count
+        except Exception:
+            pass
+
+        # Compile findings inline (mirrors compile_tool logic) to get accurate severity counts
+        try:
+            all_findings = []
+            category_breakdown = {}
+
+            # Services from active open_ports
+            for host, ports in active_data.get("open_ports", {}).items():
+                if isinstance(ports, dict):
+                    for port_num, port_info in ports.items():
+                        if isinstance(port_info, dict):
+                            all_findings.append({
+                                "category": "network_service",
+                                "severity": "Info",
+                                "title": (
+                                    f"{port_info.get('service','unknown').upper()} "
+                                    f"on port {port_num}"
+                                ),
+                            })
+
+            # SSL findings
+            for finding in active_data.get("ssl_findings", []):
+                if isinstance(finding, dict):
+                    sev = (
+                        "Critical" if (finding.get("cert_expiry_days") or 9999) < 0
+                        else "High" if (
+                            "1.0" in str(finding.get("tls_versions", []))
+                            or (finding.get("cert_expiry_days") or 9999) < 30
+                        )
+                        else "Medium"
+                    )
+                    all_findings.append({
+                        "category": "ssl_tls",
+                        "severity": sev,
+                        "title": f"SSL/TLS Issue: {finding.get('issue', '')}",
+                    })
+
+            # Missing security headers
+            for host, headers in active_data.get("missing_headers", {}).items():
+                if isinstance(headers, list):
+                    for header in headers:
+                        sev = (
+                            "High" if header in [
+                                "Strict-Transport-Security",
+                                "Content-Security-Policy",
+                            ]
+                            else "Medium"
+                        )
+                        all_findings.append({
+                            "category": "security_headers",
+                            "severity": sev,
+                            "title": f"Missing Security Header: {header}",
+                        })
+
+            # WAF absent
+            for host, waf_info in active_data.get("waf_info", {}).items():
+                if isinstance(waf_info, dict) and not waf_info.get("detected", False):
+                    all_findings.append({
+                        "category": "misconfiguration",
+                        "severity": "Medium",
+                        "title": f"No WAF Detected on {host}",
+                    })
+
+            # Dangerous HTTP methods
+            for host, methods in active_data.get("dangerous_methods", {}).items():
+                if isinstance(methods, list):
+                    for method in methods:
+                        all_findings.append({
+                            "category": "misconfiguration",
+                            "severity": "High" if method in ["PUT", "DELETE", "DEBUG"] else "Medium",
+                            "title": f"Dangerous HTTP Method Enabled: {method}",
+                        })
+
+            # Cloud assets (only verified publics)
+            cloud = active_data.get("cloud_assets", {})
+            for bucket in (
+                cloud.get("s3_buckets", []) + cloud.get("gcs_buckets", [])
+            ):
+                status = bucket.get("status") if isinstance(bucket, dict) else None
+                if status == "PUBLIC":
+                    all_findings.append({
+                        "category": "cloud_misconfiguration",
+                        "severity": "Critical",
+                        "title": f"Public Cloud Bucket: {bucket.get('name', 'unknown')}",
+                    })
+
+            # OSINT: emails
+            emails = passive_data.get("osint_emails", [])
+            if emails:
+                all_findings.append({
+                    "category": "information_disclosure",
+                    "severity": "Low",
+                    "title": f"Email Addresses Discovered ({len(emails)})",
+                })
+
+            # Google dork hits
+            dork_hits = [
+                d for d in passive_data.get("google_dorks", [])
+                if isinstance(d, dict) and d.get("count", 0) > 0
+            ]
+            if dork_hits:
+                all_findings.append({
+                    "category": "information_disclosure",
+                    "severity": "Medium",
+                    "title": f"Google Dork Hits Found ({len(dork_hits)} queries)",
+                })
+
+            # Count severity
+            sev_map = {
+                "Critical": "critical_count",
+                "High": "high_count",
+                "Medium": "medium_count",
+                "Low": "low_count",
+                "Info": "info_count",
+            }
+            for f in all_findings:
+                sev = f.get("severity", "Info")
+                key = sev_map.get(sev, "info_count")
+                stats[key] = stats.get(key, 0) + 1
+                cat = f.get("category", "other")
+                category_breakdown[cat] = category_breakdown.get(cat, 0) + 1
+
+            stats["total_findings"] = len(all_findings)
+            stats["all_findings_list"] = [f["title"] for f in all_findings[:50]]
+            stats["category_breakdown"] = category_breakdown
+
         except Exception:
             pass
 

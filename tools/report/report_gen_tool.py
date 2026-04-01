@@ -10,7 +10,18 @@ REPORT_SYSTEM_PROMPT = """Bạn là Principal Security Consultant với 15 năm 
 Chuẩn báo cáo: PTES (Penetration Testing Execution Standard), OWASP Testing Guide v4, CVSS v3.1.
 Ngôn ngữ: Tiếng Việt (technical terms giữ tiếng Anh).
 Format: Markdown hoàn chỉnh, đầy đủ tiêu đề, bảng, và nội dung chi tiết.
-QUAN TRỌNG: Chỉ viết những gì có evidence từ data. Không fabricate findings."""
+
+QUY TẮC EVIDENCE BẮT BUỘC:
+1. Chỉ viết những gì có evidence từ data. KHÔNG fabricate findings hoặc phóng đại.
+2. LUÔN phân biệt rõ nguồn dữ liệu:
+   - "Active-confirmed" (source="active_confirmed"): port/service đã được nmap scan trực tiếp xác nhận
+   - "Passive/Shodan-observed" (shodan_observed_ports): port từ Shodan API, CHƯA được active scan xác nhận
+   - KHÔNG được gộp hai nguồn này thành "X open ports" mà không ghi rõ nguồn
+3. Cloud assets với confidence="heuristic" hoặc source="heuristic_guess": chỉ là suy đoán từ tên domain,
+   KHÔNG xem là finding thật, chỉ ghi là "potential/unverified"
+4. CMS/Tech stack: chỉ báo cáo nếu CMS không null và có signals. Ghi "(detected)" hay "(undetected)" rõ ràng.
+5. CVE: chỉ đề cập khi có service version cụ thể. Không dùng cụm "100+ CVEs" chung chung.
+6. Risk score: tính từ findings thật, không inflate."""
 
 
 @tool("Attack Surface Report Generator")
@@ -29,6 +40,22 @@ def report_generator(input_json: str) -> str:
     except Exception:
         data = {"raw": input_json}
 
+    # The LLM agent sometimes wraps compiled findings inside a key like
+    # "compiled_findings".  Unwrap it so that the rest of the code can
+    # access top-level keys (meta, services, statistics, …) consistently.
+    if "compiled_findings" in data and isinstance(data["compiled_findings"], dict):
+        outer = data
+        data = data["compiled_findings"]
+        # Pull risk score / cve data from the outer wrapper if not in compiled
+        if "overall_risk_score" not in data:
+            data["overall_risk_score"] = (
+                outer.get("overall_risk_score") or outer.get("risk_score")
+            )
+        if "risk_level" not in data:
+            data["risk_level"] = outer.get("risk_level")
+        if "cves" not in data:
+            data["cves"] = outer.get("cves", [])
+
     target = (data.get("meta", {}).get("target") or
               data.get("target", "Unknown Target"))
 
@@ -41,9 +68,15 @@ def report_generator(input_json: str) -> str:
     osint_findings = data.get("osint_findings", [])
     infra_findings = data.get("infrastructure_findings", [])
 
-    # Top findings for report
+    # Active-confirmed ports only (source="active_confirmed")
+    active_confirmed_services = [s for s in services if s.get("source") == "active_confirmed"]
+    # Shodan-observed ports (passive intelligence)
+    shodan_ports = data.get("infrastructure", {}).get("shodan_observed_ports", [])
+
+    # Top findings for report — exclude heuristic cloud entries from Critical count
     all_findings = (
-        [f for f in infra_findings if f.get("severity") == "Critical"] +
+        [f for f in infra_findings if f.get("severity") == "Critical"
+         and f.get("source") != "heuristic_guess"] +
         [f for f in web_findings + services if f.get("severity") in ["Critical", "High"]] +
         [f for f in web_findings + services if f.get("severity") == "Medium"]
     )[:15]
@@ -60,28 +93,42 @@ def report_generator(input_json: str) -> str:
             "total_findings": stats.get("total_findings", len(all_findings)),
             "severity": sev,
             "subdomains_found": stats.get("subdomains_count", 0),
-            "open_ports": stats.get("open_ports_count", 0),
+            # Only active-confirmed ports in the primary count
+            "active_confirmed_ports": len(active_confirmed_services),
+            # Shodan-observed ports are passive intelligence
+            "shodan_observed_ports": shodan_ports,
         },
         "infrastructure": data.get("infrastructure", {}),
+        "active_confirmed_services": active_confirmed_services,
         "key_findings": all_findings,
         "versioned_services": versioned_services,
         "risk_score": data.get("overall_risk_score"),
         "risk_level": data.get("risk_level"),
     }
 
+    # Count active-confirmed ports for display
+    active_port_count = len(active_confirmed_services)
+    shodan_port_count = len(shodan_ports)
+
     user_prompt = f"""
 <analysis>
 **Bước 1 — Đánh giá tổng quan target:**
 - Target: {target}
 - Subdomains: {stats.get("subdomains_count", 0)}
-- Open ports: {stats.get("open_ports_count", 0)}
+- Active-confirmed ports (nmap scan): {active_port_count}
+- Shodan-observed ports (passive, NOT yet active-confirmed): {shodan_port_count}
 - Risk score: {data.get("overall_risk_score", "N/A")}/100
 
-**Bước 2 — Top rủi ro từ findings:**
+**Bước 2 — Top rủi ro từ findings (chỉ từ evidence thật):**
 Critical: {sev.get("Critical", 0)}, High: {sev.get("High", 0)}, Medium: {sev.get("Medium", 0)}
 
 **Bước 3 — Business impact analysis:**
-Đánh giá khả năng khai thác và tác động kinh doanh của các findings quan trọng.
+Đánh giá khả năng khai thác và tác động kinh doanh của các findings có evidence cụ thể.
+
+QUY TẮC QUAN TRỌNG:
+- Khi đề cập ports, phân biệt: "X ports confirmed by active scan" vs "Y ports observed by Shodan (passive)"
+- Cloud buckets có source=heuristic_guess → chỉ liệt kê phần Appendix, KHÔNG đưa vào findings chính
+- KHÔNG dùng cụm "100+ CVEs" trừ khi data cung cấp CVE IDs cụ thể
 </analysis>
 
 Bây giờ viết báo cáo đầy đủ với format Markdown:
@@ -97,20 +144,21 @@ Bây giờ viết báo cáo đầy đủ với format Markdown:
 [Mô tả target, tools sử dụng, approach, limitations]
 
 ## 3. Attack Surface Overview
-[Tổng quan infrastructure: domains, IPs, services, entry points]
+[Tổng quan infrastructure: domains, IPs, services, entry points.
+Ghi rõ: "Active scan confirmed X ports. Shodan observed Y additional ports (passive intelligence)."]
 
 ## 4. Findings Summary
 
-| ID | Severity | Category | Title | CVSS Score |
-|---|---|---|---|---|
-[Liệt kê tất cả findings từ data, tối thiểu 10 findings]
+| ID | Severity | Category | Title | Evidence Source | CVSS Score |
+|---|---|---|---|---|---|
+[Liệt kê tất cả findings từ data, ghi rõ evidence source]
 
 ## 5. Detailed Technical Findings
 [Với mỗi finding quan trọng (Critical/High/Medium):
 ### FIND-XXX — Title
 **Severity:** | **CVSS:** | **Category:**
 **Description:** [kỹ thuật]
-**Evidence:** [từ scan data]
+**Evidence:** [nguồn + raw data]
 **Impact:** [business + technical]
 **Recommendation:** [steps cụ thể]
 **References:** [CVE/OWASP links nếu có]
@@ -118,7 +166,7 @@ Bây giờ viết báo cáo đầy đủ với format Markdown:
 
 ## 6. Risk Matrix
 
-| Likelihood\Impact | Critical | High | Medium | Low |
+| Likelihood / Impact | Critical | High | Medium | Low |
 |---|---|---|---|---|
 | High | | | | |
 | Medium | | | | |
@@ -171,7 +219,20 @@ DATA:
         with open(report_path, "w", encoding="utf-8") as f:
             f.write(report_md)
 
-        return report_md
+        # Return a compact status (not the full markdown) so the LLM does NOT
+        # try to inline the large markdown string when calling export_report.
+        # The LLM should call: export_report({"report_path": "outputs/reports/attack_surface_report.md"})
+        return json.dumps({
+            "status": "success",
+            "report_path": report_path,
+            "report_length_chars": len(report_md),
+            "preview": report_md[:300],
+            "instruction": (
+                "Report saved. Call export_report with "
+                '{\"report_path\": \"outputs/reports/attack_surface_report.md\"} '
+                "to generate HTML and PDF."
+            ),
+        }, ensure_ascii=False)
 
     except Exception as e:
         fallback = _generate_fallback_report(input_json)

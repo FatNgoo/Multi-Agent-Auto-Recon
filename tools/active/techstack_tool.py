@@ -53,18 +53,37 @@ def technology_stack_analyzer(url: str) -> str:
         scripts = [str(s) for s in scripts if s]
         all_scripts = " ".join(scripts).lower()
 
-        # CMS detection
+        # CMS detection — require 2+ signals to reduce false positives
         cms_patterns = {
-            "WordPress": ["wp-content", "wp-includes", "wp-json"],
-            "Drupal": ["/sites/default/files/", "drupal.js", "drupal.min.js"],
-            "Joomla": ["/components/com_", "joomla", "mootools"],
-            "Magento": ["mage/", "Mage.Cookies", "varien"],
-            "Shopify": ["cdn.shopify.com", "Shopify.theme"],
+            "WordPress": ["wp-content", "wp-includes", "wp-json", "wp-login.php"],
+            "Drupal": ["/sites/default/files/", "drupal.js", "drupal.min.js", "Drupal.settings"],
+            "Joomla": ["/components/com_", "joomla", "mootools", "/media/jui/"],
+            "Magento": ["mage/", "Mage.Cookies", "varien", "mage-cache-sessid", "/skin/frontend/"],
+            "Shopify": ["cdn.shopify.com", "Shopify.theme", "shopify_pay"],
         }
+        cms_signals = {}
         for cms, patterns in cms_patterns.items():
-            if any(p in body.lower() for p in patterns):
-                tech["cms"] = cms
+            matched = [p for p in patterns if p in body.lower() or p in body]
+            if matched:
+                cms_signals[cms] = matched
+        # Only report CMS if 2+ specific signals match
+        detected_cms = None
+        for cms, signals in cms_signals.items():
+            if len(signals) >= 2:
+                detected_cms = cms
                 break
+            # Single high-confidence signal
+            if len(signals) == 1 and any(
+                sig in [
+                    "wp-content", "wp-includes", "drupal.settings",
+                    "cdn.shopify.com", "Mage.Cookies",
+                ]
+                for sig in signals
+            ):
+                detected_cms = cms
+                break
+        tech["cms"] = detected_cms
+        tech["cms_signals"] = cms_signals  # expose for audit
 
         # Framework detection
         framework_patterns = {
@@ -107,14 +126,19 @@ def technology_stack_analyzer(url: str) -> str:
             if any(p in body for p in patterns):
                 tech["cdn"].append(cdn)
 
-        # Analytics
+        # Analytics — use full script URL patterns, not ambiguous short strings
         analytics_patterns = {
-            "Google Analytics": ["google-analytics.com", "gtag(", "UA-", "G-"],
-            "Google Tag Manager": ["googletagmanager.com", "GTM-"],
-            "Facebook Pixel": ["connect.facebook.net", "fbq("],
-            "Hotjar": ["hotjar.com", "hjsv"],
-            "Mixpanel": ["mixpanel.com"],
-            "Segment": ["segment.com", "analytics.js"],
+            "Google Analytics": [
+                "google-analytics.com/analytics.js",
+                "google-analytics.com/ga.js",
+                "googletagmanager.com/gtag/js",
+                "gtag('config'",
+            ],
+            "Google Tag Manager": ["googletagmanager.com/gtm.js", "GTM-"],
+            "Facebook Pixel": ["connect.facebook.net/en_US/fbevents.js", "fbq('init'"],
+            "Hotjar": ["static.hotjar.com", "hjsv"],
+            "Mixpanel": ["cdn.mxpnl.com", "mixpanel.init"],
+            "Segment": ["cdn.segment.com/analytics.js", "analytics.identify("],
         }
         for analytics, patterns in analytics_patterns.items():
             if any(p in body for p in patterns):

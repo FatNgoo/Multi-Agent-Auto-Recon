@@ -19,16 +19,42 @@ def viewdns_lookup(domain: str) -> str:
     }
 
     # Reverse IP via HackerTarget (free)
+    # Known error/quota messages from HackerTarget that should never be treated as domain entries
+    _HACKERTARGET_ERRORS = {
+        "api count exceeded",
+        "increase quota",
+        "membership",
+        "error:",
+        "invalid",
+        "no results",
+        "too many requests",
+    }
+
     try:
         url = f"https://api.hackertarget.com/reverseiplookup/?q={domain}"
         resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-        if resp.status_code == 200 and "error" not in resp.text.lower():
-            domains = [
+        if resp.status_code == 200:
+            raw_lines = [
                 line.strip() for line in resp.text.strip().splitlines()
                 if line.strip()
             ]
+            # Filter out API error/quota messages
+            domains = [
+                line for line in raw_lines
+                if not any(
+                    err_kw in line.lower()
+                    for err_kw in _HACKERTARGET_ERRORS
+                )
+                # Must look like a domain name (contains a dot and no spaces)
+                and "." in line
+                and " " not in line
+            ]
             results["reverse_ip_domains"] = domains[:30]
             results["reverse_ip_count"] = len(domains)
+            # Preserve any API error for transparency
+            error_lines = [l for l in raw_lines if l not in domains]
+            if error_lines:
+                results["reverse_ip_api_note"] = "; ".join(error_lines[:3])
     except Exception as e:
         results["reverse_ip_error"] = str(e)
 
